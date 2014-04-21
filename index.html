@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<head>
+</head>
+<body>
+	<div id="inputContainer">
+		<input type="text" value="Visualizing Biological Data" id="inputForm" placeholder="Enter Text">
+	</div>
+	<div id="center"> 
+		
+		<div id="svgContainer"></div> 
+	</div>
+</body>
+
+<script type="text/javascript" src="js/d3-3.4.6.min.js"></script>
+<script type="text/javascript" src="js/jquery-2.1.0.min.js"></script>
+
+<style type="text/css">
+
+path {
+	fill-rule: evenodd;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+}
+#center {
+	width: 800px;
+	margin: 0 auto;
+	padding: 0;
+}
+
+#inputContainer {
+	text-align:center;
+	position: absolute;
+	top: 40px;
+	width: 100%;
+
+}
+#inputForm {
+	font-size: 40px;
+	text-align:center;
+	width: 800px;
+	background: none;
+	border: none;
+	color: #444;
+}
+#inputForm:focus {
+	outline: none;
+}
+
+#svgContainer {
+	
+}
+
+</style>
+
+<script type="text/javascript">
+
+
+var inputText;
+
+$(document).ready(function() {
+	var t = $('#inputForm').val();
+	updateArcs(t);
+});
+
+$('#inputForm').bind('input', function(e) {
+	var t = $(this).val();
+	updateArcs(t);
+});
+
+var	w = 800,
+	h = 800,
+	τ = 2 * Math.PI; // http://tauday.com/tau-manifesto
+    
+var textToCharCode = function(text) {
+	var data = [];
+	var text = text.toUpperCase();
+	for(var i=0; i<text.length; i++) {
+		var charCode = text[i].charCodeAt()-64;
+		if ((charCode < 0) || (charCode > 26)) charCode = 0;
+		data.push(charCode);
+	}
+	return data;
+}
+
+// map charCodes to angle
+var charCodeToAngle = d3.scale.linear().domain([0,26]).range([0,(τ-τ/26)]);	// between 0 and 2PI
+
+var color = d3.scale.category20b();		// Ask Bang which colors he used...
+
+
+
+
+// create svg & group
+var svg = d3.select("#svgContainer").append("svg:svg")
+	.attr("width", w)
+	.attr("height", h)
+		.append("svg:g")
+	.attr("transform", "translate("+ (w / 2)+"," + (h / 2) + ") rotate(90)");
+
+
+var data = [];
+var previousData = [];
+
+var updateArcs = function(newText) {
+	
+	previousData = data;
+	data = textToCharCode(newText);
+	
+	arcs = svg.selectAll("path")	// reselect
+		.data(data);				// bind new data
+	
+	if (data.length > previousData.length) {
+		arcs.enter().append("path")
+		//	.attr("fill", function(d,i) { return color(d); })
+		
+			.transition()
+				.ease("cubic-in-out")
+				.duration(function(d,i) { return d *50 })
+				.attrTween("fill", colorTween)
+				.attrTween("d", arcTween);
+	}
+	arcs
+	//	.attr("fill", function(d,i) { return color(d); })
+	//	.attrTween("fill", colorTween)
+		.transition()
+			.ease("cubic-in-out")	 //	"elastic"
+			.duration(function(d,i) { 
+				var previousD = previousData[i] || 0;
+				return Math.abs(d - previousD) *50 })
+			.attrTween("fill", colorTween)
+			.attrTween("d", arcTween);
+			
+	arcs.exit()
+		.transition()
+			.ease("cubic-in-out")	 //	"elastic"
+			.duration(function(d,i) { 
+				console.log("exit", d);
+				return d *50 })
+			.attrTween("d", reverseArcTween)
+		.remove();
+
+}
+
+function colorTween(d, i, a) {
+	
+	var previousD = previousData[i] || d;
+	
+	console.log("colorTween", color(previousD), color(d));
+	
+	var interpolation = d3.interpolateRgb(color(previousD), color(d));
+	
+	return function(tweenValue) {
+		return interpolation(tweenValue);
+		console.log(c);
+		return c;
+	};
+}
+
+
+
+
+function arcTween(d, i, a) {
+	// create an interpolation between two objects
+	
+	var previousD = previousData[i] || 0;
+	var angleInterpolation = d3.interpolate(previousD,d);
+	
+	// "The return value of tween must be an interpolator: a function that maps a parametric value t in the domain [0,1] to a color, number or arbitrary value"
+	// https://github.com/mbostock/d3/wiki/Transitions#wiki-attrTween
+	
+	// create the svg path sting describing the arc
+	return function(tweenValue) {
+		var angle = angleInterpolation(tweenValue);
+		// create and return the svg arc string description
+		var a = d3.svg.arc()
+			.innerRadius(50 + 10*i)
+			.outerRadius(53 + 10*i)
+			.startAngle(0)
+			.endAngle(charCodeToAngle(angle));
+		
+		return a();		// call and return arc svg string
+	};
+}
+
+function reverseArcTween(d, i, a) {
+	// create an interpolation between two objects
+	var angleInterpolation = d3.interpolate(d, 0);
+	return function(tweenValue) {
+		var angle = angleInterpolation(tweenValue);
+		var a = d3.svg.arc()
+			.innerRadius(50 + 10*i)
+			.outerRadius(53 + 10*i)
+			.startAngle(0)
+			.endAngle(charCodeToAngle(angle));
+		return a();		// return arc function
+	};
+}
+
+</script>
+
+</html>
